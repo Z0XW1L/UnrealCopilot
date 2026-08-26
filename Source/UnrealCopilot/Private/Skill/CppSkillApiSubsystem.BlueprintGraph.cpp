@@ -477,6 +477,7 @@ bool UCppSkillApiSubsystem::AddBlueprintNode(
                 NodeClassPath,
                 NodePosX,
                 NodePosY,
+                FString(),
                 OutNodeGuid,
                 OutError
             );
@@ -1001,8 +1002,10 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
                     int32 NodePosX = 0;
                     int32 NodePosY = 0;
 
+                        FString VariableName;
                     TryGetStringFieldAny(CommandObject, { TEXT("graph_name"), TEXT("graph") }, GraphName);
                     TryGetIntFieldAny(CommandObject, { TEXT("node_pos_x"), TEXT("x") }, NodePosX);
+                        TryGetStringFieldAny(CommandObject, { TEXT("variable_name"), TEXT("variable") }, VariableName);
                     TryGetIntFieldAny(CommandObject, { TEXT("node_pos_y"), TEXT("y") }, NodePosY);
 
                     if (!TryGetStringFieldAny(
@@ -1021,6 +1024,7 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
                             NodeClassPath,
                             NodePosX,
                             NodePosY,
+                            VariableName,
                             NodeGuid,
                             StepError
                         );

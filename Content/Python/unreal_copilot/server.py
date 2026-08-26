@@ -31,8 +31,9 @@ mcp = FastMCP(
 
 def _is_ue_plugin_available() -> bool:
     """Check if the UE plugin HTTP API is configured."""
-    host = os.getenv("UE_PLUGIN_HOST")
-    return host is not None and host.strip() != ""
+    # The server runs inside the UE editor, whose local API has a stable default.
+    host = os.getenv("UE_PLUGIN_HOST", "127.0.0.1")
+    return host.strip() != ""
 
 
 def register_tools():

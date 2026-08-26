@@ -14,6 +14,12 @@ void UMcpServerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
 
+    if (IsRunningCommandlet() || IsRunningDedicatedServer())
+    {
+        UE_LOG(LogMcpServerSubsystem, Log, TEXT("UnrealCopilot MCP subsystem not initialized in commandlet or dedicated server mode"));
+        return;
+    }
+
     UE_LOG(LogMcpServerSubsystem, Log, TEXT("UnrealCopilot MCP subsystem initialized"));
 
     // Check if Python is available

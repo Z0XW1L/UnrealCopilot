@@ -10,6 +10,7 @@
 #include "EdGraphSchema_K2.h"
 #include "Engine/Blueprint.h"
 #include "K2Node_CallFunction.h"
+#include "K2Node_VariableGet.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "UObject/NoExportTypes.h"
 
@@ -372,6 +373,7 @@ bool FBlueprintWriteService::AddNode(
     const FString& NodeClassPath,
     int32 NodePosX,
     int32 NodePosY,
+    const FString& VariableName,
     FString& OutNodeGuid,
     FString& OutError
 )
@@ -408,6 +410,18 @@ bool FBlueprintWriteService::AddNode(
 
     NewNode->CreateNewGuid();
     NewNode->PostPlacedNewNode();
+
+    if (!VariableName.IsEmpty())
+    {
+        UK2Node_VariableGet* VariableGet = Cast<UK2Node_VariableGet>(NewNode);
+        if (!VariableGet)
+        {
+            OutError = TEXT("variable_name is only supported for K2Node_VariableGet.");
+            return false;
+        }
+        VariableGet->VariableReference.SetSelfMember(FName(*VariableName));
+    }
+
     NewNode->AllocateDefaultPins();
     Graph->AddNode(NewNode, true, false);
     NewNode->NodePosX = NodePosX;
@@ -663,6 +677,20 @@ bool FBlueprintWriteService::SetPinDefault(
     Graph->Modify();
     Node->Modify();
     Pin->Modify();
+
+    if (Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Class)
+    {
+        UClass* ClassValue = StaticLoadClass(UObject::StaticClass(), nullptr, *ValueAsString);
+        if (!ClassValue)
+        {
+            OutError = FString::Printf(TEXT("Failed to load class default: %s"), *ValueAsString);
+            return false;
+        }
+        Pin->DefaultObject = ClassValue;
+        Pin->DefaultValue.Empty();
+        FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+        return true;
+    }
 
     bool bSetBySchema = false;
     if (Schema)

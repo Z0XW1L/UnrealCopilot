@@ -456,6 +456,10 @@ namespace
 				PinObj->SetStringField(TEXT("name"), Pin->PinName.ToString());
 				PinObj->SetStringField(TEXT("direction"), Pin->Direction == EGPD_Input ? TEXT("input") : TEXT("output"));
 				PinObj->SetStringField(TEXT("default"), Pin->DefaultValue);
+				if (Pin->DefaultObject)
+				{
+					PinObj->SetStringField(TEXT("default_object"), Pin->DefaultObject->GetPathName());
+				}
 				PinObj->SetStringField(TEXT("category"), Pin->PinType.PinCategory.ToString());
 				PinObj->SetStringField(TEXT("sub_category"), Pin->PinType.PinSubCategory.ToString());
 

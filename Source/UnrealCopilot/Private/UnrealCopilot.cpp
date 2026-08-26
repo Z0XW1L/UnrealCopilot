@@ -28,6 +28,12 @@ void FUnrealCopilotModule::StartupModule()
 {
     UE_LOG(LogTemp, Log, TEXT("UnrealCopilot: Starting module..."));
 
+    if (IsRunningCommandlet() || IsRunningDedicatedServer())
+    {
+        UE_LOG(LogTemp, Log, TEXT("UnrealCopilot: Skipping startup in commandlet or dedicated server mode"));
+        return;
+    }
+
     // Initialize HTTP server
     InitializeHttpServer();
 

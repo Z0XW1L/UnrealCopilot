@@ -73,6 +73,7 @@ public:
         const FString& NodeClassPath,
         int32 NodePosX,
         int32 NodePosY,
+        const FString& VariableName,
         FString& OutNodeGuid,
         FString& OutError
     );
