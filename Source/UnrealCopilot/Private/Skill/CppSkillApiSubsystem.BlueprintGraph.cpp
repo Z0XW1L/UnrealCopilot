@@ -999,13 +999,19 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
                     FString GraphName = TEXT("EventGraph");
                     FString NodeClassPath;
                     FString NodeGuid;
+                    FString EventName;
                     int32 NodePosX = 0;
                     int32 NodePosY = 0;
 
                         FString VariableName;
                     TryGetStringFieldAny(CommandObject, { TEXT("graph_name"), TEXT("graph") }, GraphName);
+                    TryGetStringFieldAny(CommandObject, { TEXT("event_name"), TEXT("custom_event_name") }, EventName);
                     TryGetIntFieldAny(CommandObject, { TEXT("node_pos_x"), TEXT("x") }, NodePosX);
-                        TryGetStringFieldAny(CommandObject, { TEXT("variable_name"), TEXT("variable") }, VariableName);
+                    TryGetStringFieldAny(CommandObject, { TEXT("variable_name"), TEXT("variable") }, VariableName);
+                    if (!EventName.IsEmpty())
+                    {
+                        VariableName = EventName;
+                    }
                     TryGetIntFieldAny(CommandObject, { TEXT("node_pos_y"), TEXT("y") }, NodePosY);
 
                     if (!TryGetStringFieldAny(
@@ -1070,6 +1076,68 @@ FString UCppSkillApiSubsystem::ExecuteBlueprintCommands(
                             Step->SetStringField(TEXT("node_guid"), NodeGuid);
                             Step->SetStringField(TEXT("function_path"), FunctionPath);
                         }
+                    }
+                }
+                else if (OpLower == TEXT("add_custom_event_pin"))
+                {
+                    FString GraphName = TEXT("EventGraph");
+                    FString NodeGuid;
+                    FString PinName;
+                    FString PinType;
+                    TryGetStringFieldAny(CommandObject, { TEXT("graph_name"), TEXT("graph") }, GraphName);
+                    TryGetStringFieldAny(CommandObject, { TEXT("node_guid"), TEXT("guid") }, NodeGuid);
+                    TryGetStringFieldAny(CommandObject, { TEXT("pin_name"), TEXT("name") }, PinName);
+                    TryGetStringFieldAny(CommandObject, { TEXT("pin_type"), TEXT("type") }, PinType);
+
+                    if (NodeGuid.IsEmpty() || PinName.IsEmpty() || PinType.IsEmpty())
+                    {
+                        StepError = TEXT("node_guid, pin_name, and pin_type are required.");
+                    }
+                    else
+                    {
+                        bStepSuccess = FBlueprintWriteService::AddCustomEventPin(
+                            Blueprint, GraphName, NodeGuid, PinName, PinType, StepError);
+                    }
+                }
+                else if (OpLower == TEXT("configure_input_key"))
+                {
+                    FString GraphName = TEXT("EventGraph");
+                    FString NodeGuid;
+                    FString KeyName;
+                    TryGetStringFieldAny(CommandObject, { TEXT("graph_name"), TEXT("graph") }, GraphName);
+                    TryGetStringFieldAny(CommandObject, { TEXT("node_guid"), TEXT("guid") }, NodeGuid);
+                    TryGetStringFieldAny(CommandObject, { TEXT("key_name"), TEXT("key") }, KeyName);
+                    if (NodeGuid.IsEmpty() || KeyName.IsEmpty())
+                    {
+                        StepError = TEXT("node_guid and key_name are required.");
+                    }
+                    else
+                    {
+                        bStepSuccess = FBlueprintWriteService::ConfigureInputKeyNode(
+                            Blueprint, GraphName, NodeGuid, KeyName, StepError);
+                    }
+                }
+                else if (OpLower == TEXT("add_custom_event_call"))
+                {
+                    FString GraphName = TEXT("EventGraph");
+                    FString EventName;
+                    FString NodeGuid;
+                    int32 NodePosX = 0;
+                    int32 NodePosY = 0;
+                    TryGetStringFieldAny(CommandObject, { TEXT("graph_name"), TEXT("graph") }, GraphName);
+                    TryGetStringFieldAny(CommandObject, { TEXT("event_name"), TEXT("name") }, EventName);
+                    TryGetIntFieldAny(CommandObject, { TEXT("node_pos_x"), TEXT("x") }, NodePosX);
+                    TryGetIntFieldAny(CommandObject, { TEXT("node_pos_y"), TEXT("y") }, NodePosY);
+                    if (EventName.IsEmpty())
+                    {
+                        StepError = TEXT("event_name is required.");
+                    }
+                    else
+                    {
+                        bStepSuccess = FBlueprintWriteService::AddCustomEventCallNode(
+                            Blueprint, GraphName, EventName, NodePosX, NodePosY, NodeGuid, StepError);
+                        if (bStepSuccess)
+                            Step->SetStringField(TEXT("node_guid"), NodeGuid);
                     }
                 }
                 else if (OpLower == TEXT("remove_node") || OpLower == TEXT("remove_blueprint_node"))

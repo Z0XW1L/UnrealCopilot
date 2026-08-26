@@ -11,16 +11,21 @@ from pathlib import Path
 import site
 
 _python_dir = Path(__file__).parent
-_venv_site_packages_dir = _python_dir / ".venv" / "Lib" / "site-packages"
+_venv_dir = _python_dir / ".venv"
+_venv_site_packages_dirs = [
+    _venv_dir / "Lib" / "site-packages",
+    *_venv_dir.glob("lib/python*/site-packages"),
+]
 
 # Add uv-managed venv site-packages first (higher priority for dependencies).
-if _venv_site_packages_dir.exists():
-    try:
-        # Important: process .pth files too (e.g. pywin32 on Windows)
-        site.addsitedir(str(_venv_site_packages_dir))
-    except Exception:
-        if str(_venv_site_packages_dir) not in sys.path:
-            sys.path.insert(0, str(_venv_site_packages_dir))
+for _venv_site_packages_dir in _venv_site_packages_dirs:
+    if _venv_site_packages_dir.exists():
+        try:
+            # Important: process .pth files too (e.g. pywin32 on Windows)
+            site.addsitedir(str(_venv_site_packages_dir))
+        except Exception:
+            if str(_venv_site_packages_dir) not in sys.path:
+                sys.path.insert(0, str(_venv_site_packages_dir))
 
 # Add Content/Python for the UnrealCopilot package
 if str(_python_dir) not in sys.path:

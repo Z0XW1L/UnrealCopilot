@@ -25,8 +25,14 @@ def get_python_dir() -> Path:
 
 
 def get_venv_site_packages() -> Path:
-    """Get .venv site-packages directory (Windows layout)."""
-    return get_python_dir() / ".venv" / "Lib" / "site-packages"
+    """Get the platform-specific .venv site-packages directory."""
+    venv_dir = get_python_dir() / ".venv"
+    windows_path = venv_dir / "Lib" / "site-packages"
+    if windows_path.exists():
+        return windows_path
+
+    unix_paths = sorted(venv_dir.glob("lib/python*/site-packages"))
+    return unix_paths[0] if unix_paths else windows_path
 
 def ensure_site_packages_in_path() -> list[Path]:
     """Ensure candidate site-packages dirs are in sys.path for import checks."""
@@ -90,9 +96,14 @@ def run_uv_sync() -> bool:
     print("[UnrealCopilot] Syncing dependencies with uv (creating .venv)...")
 
     try:
+        uv_executable = next(
+            (path for path in ("/opt/homebrew/bin/uv", "/usr/local/bin/uv", "uv")
+             if Path(path).exists() or path == "uv"),
+            "uv",
+        )
         result = subprocess.run(
             # Keep it simple: relies on pyproject.toml `requires-python` to select 3.11.
-            ["uv", "sync"],
+            [uv_executable, "sync"],
             cwd=str(python_dir),
             capture_output=True,
             text=True,

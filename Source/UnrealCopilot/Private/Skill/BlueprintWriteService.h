@@ -88,6 +88,33 @@ public:
         FString& OutError
     );
 
+    static bool AddCustomEventPin(
+        UBlueprint* Blueprint,
+        const FString& GraphName,
+        const FString& NodeGuid,
+        const FString& PinName,
+        const FString& PinType,
+        FString& OutError
+    );
+
+    static bool ConfigureInputKeyNode(
+        UBlueprint* Blueprint,
+        const FString& GraphName,
+        const FString& NodeGuid,
+        const FString& KeyName,
+        FString& OutError
+    );
+
+    static bool AddCustomEventCallNode(
+        UBlueprint* Blueprint,
+        const FString& GraphName,
+        const FString& EventName,
+        int32 NodePosX,
+        int32 NodePosY,
+        FString& OutNodeGuid,
+        FString& OutError
+    );
+
     static bool RemoveNode(
         UBlueprint* Blueprint,
         const FString& GraphName,

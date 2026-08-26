@@ -126,7 +126,7 @@ void FUnrealCopilotModule::RegisterRoutes(TSharedPtr<IHttpRouter> Router)
         FHttpRequestHandler::CreateLambda([](const FHttpServerRequest& Request, const FHttpResultCallback& OnComplete)
         {
             TUniquePtr<FHttpServerResponse> Response = FHttpServerResponse::Create(
-                TEXT("{\"status\": \"ok\", \"service\": \"UnrealCopilot\"}"),
+                FString(TEXT("{\"status\": \"ok\", \"service\": \"UnrealCopilot\"}")),
                 TEXT("application/json")
             );
             OnComplete(MoveTemp(Response));

@@ -10,6 +10,8 @@
 #include "EdGraphSchema_K2.h"
 #include "Engine/Blueprint.h"
 #include "K2Node_CallFunction.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_InputKey.h"
 #include "K2Node_VariableGet.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "UObject/NoExportTypes.h"
@@ -411,21 +413,31 @@ bool FBlueprintWriteService::AddNode(
     NewNode->CreateNewGuid();
     NewNode->PostPlacedNewNode();
 
-    if (!VariableName.IsEmpty())
-    {
-        UK2Node_VariableGet* VariableGet = Cast<UK2Node_VariableGet>(NewNode);
-        if (!VariableGet)
-        {
-            OutError = TEXT("variable_name is only supported for K2Node_VariableGet.");
-            return false;
-        }
-        VariableGet->VariableReference.SetSelfMember(FName(*VariableName));
-    }
-
     NewNode->AllocateDefaultPins();
     Graph->AddNode(NewNode, true, false);
     NewNode->NodePosX = NodePosX;
     NewNode->NodePosY = NodePosY;
+
+    if (!VariableName.IsEmpty())
+    {
+        UK2Node_VariableGet* VariableGet = Cast<UK2Node_VariableGet>(NewNode);
+        UK2Node_CustomEvent* CustomEvent = Cast<UK2Node_CustomEvent>(NewNode);
+        if (VariableGet)
+        {
+            VariableGet->VariableReference.SetSelfMember(FName(*VariableName));
+        }
+        else if (CustomEvent)
+        {
+            CustomEvent->CustomFunctionName = FName(*VariableName);
+            CustomEvent->ReconstructNode();
+            Graph->NotifyGraphChanged();
+        }
+        else
+        {
+            OutError = TEXT("variable_name is only supported for K2Node_VariableGet or event_name is supported for K2Node_CustomEvent.");
+            return false;
+        }
+    }
 
     OutNodeGuid = NewNode->NodeGuid.ToString(EGuidFormats::DigitsWithHyphensLower);
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
@@ -491,6 +503,125 @@ bool FBlueprintWriteService::AddFunctionCallNode(
     NewNode->NodePosY = NodePosY;
 
     OutNodeGuid = NewNode->NodeGuid.ToString(EGuidFormats::DigitsWithHyphensLower);
+    FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+    return true;
+}
+
+bool FBlueprintWriteService::AddCustomEventPin(
+    UBlueprint* Blueprint,
+    const FString& GraphName,
+    const FString& NodeGuid,
+    const FString& PinName,
+    const FString& PinType,
+    FString& OutError
+)
+{
+    UEdGraph* Graph = FindGraph(Blueprint, GraphName);
+    if (!Graph)
+    {
+        OutError = TEXT("Graph not found.");
+        return false;
+    }
+
+    UEdGraphNode* Node = FindNodeByGuid(Graph, NodeGuid, OutError);
+    UK2Node_CustomEvent* CustomEvent = Cast<UK2Node_CustomEvent>(Node);
+    if (!CustomEvent)
+    {
+        OutError = TEXT("Node is not a custom event.");
+        return false;
+    }
+
+    FEdGraphPinType ResolvedPinType;
+    if (!ResolveVariableType(PinType, ResolvedPinType, OutError))
+        return false;
+
+    FText PinError;
+    if (!CustomEvent->CanCreateUserDefinedPin(ResolvedPinType, EGPD_Output, PinError))
+    {
+        OutError = PinError.ToString();
+        return false;
+    }
+
+    TSharedPtr<FUserPinInfo> PinInfo = MakeShared<FUserPinInfo>();
+    PinInfo->PinName = FName(*PinName);
+    PinInfo->PinType = ResolvedPinType;
+    PinInfo->DesiredPinDirection = EGPD_Output;
+
+    Blueprint->Modify();
+    Graph->Modify();
+    CustomEvent->Modify();
+    CustomEvent->UserDefinedPins.Add(PinInfo);
+    CustomEvent->ReconstructNode();
+    Graph->NotifyGraphChanged();
+    FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+    return true;
+}
+
+bool FBlueprintWriteService::ConfigureInputKeyNode(
+    UBlueprint* Blueprint,
+    const FString& GraphName,
+    const FString& NodeGuid,
+    const FString& KeyName,
+    FString& OutError
+)
+{
+    UEdGraph* Graph = FindGraph(Blueprint, GraphName);
+    if (!Graph)
+    {
+        OutError = TEXT("Graph not found.");
+        return false;
+    }
+
+    UEdGraphNode* Node = FindNodeByGuid(Graph, NodeGuid, OutError);
+    UK2Node_InputKey* InputKeyNode = Cast<UK2Node_InputKey>(Node);
+    if (!InputKeyNode)
+    {
+        OutError = TEXT("Node is not an input key node.");
+        return false;
+    }
+
+    InputKeyNode->Modify();
+    InputKeyNode->InputKey = FKey(FName(*KeyName));
+    InputKeyNode->bConsumeInput = true;
+    InputKeyNode->ReconstructNode();
+    Graph->NotifyGraphChanged();
+    FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+    return true;
+}
+
+bool FBlueprintWriteService::AddCustomEventCallNode(
+    UBlueprint* Blueprint,
+    const FString& GraphName,
+    const FString& EventName,
+    int32 NodePosX,
+    int32 NodePosY,
+    FString& OutNodeGuid,
+    FString& OutError
+)
+{
+    UEdGraph* Graph = FindGraph(Blueprint, GraphName);
+    if (!Graph)
+    {
+        OutError = TEXT("Graph not found.");
+        return false;
+    }
+
+    UK2Node_CallFunction* CallNode = NewObject<UK2Node_CallFunction>(Graph, NAME_None, RF_Transactional);
+    if (!CallNode)
+    {
+        OutError = TEXT("Failed to create custom event call node.");
+        return false;
+    }
+
+    Blueprint->Modify();
+    Graph->Modify();
+    CallNode->CreateNewGuid();
+    CallNode->FunctionReference.SetSelfMember(FName(*EventName));
+    CallNode->AllocateDefaultPins();
+    Graph->AddNode(CallNode, true, false);
+    CallNode->NodePosX = NodePosX;
+    CallNode->NodePosY = NodePosY;
+    OutNodeGuid = CallNode->NodeGuid.ToString(EGuidFormats::DigitsWithHyphensLower);
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
     return true;
 }
@@ -789,12 +920,14 @@ bool FBlueprintWriteService::ResolveVariableType(
     }
     if (TypeName == TEXT("float"))
     {
-        OutPinType.PinCategory = UEdGraphSchema_K2::PC_Float;
+        OutPinType.PinCategory = UEdGraphSchema_K2::PC_Real;
+        OutPinType.PinSubCategory = UEdGraphSchema_K2::PC_Float;
         return true;
     }
     if (TypeName == TEXT("double"))
     {
-        OutPinType.PinCategory = UEdGraphSchema_K2::PC_Double;
+        OutPinType.PinCategory = UEdGraphSchema_K2::PC_Real;
+        OutPinType.PinSubCategory = UEdGraphSchema_K2::PC_Double;
         return true;
     }
     if (TypeName == TEXT("name"))
