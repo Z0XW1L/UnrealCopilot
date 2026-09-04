@@ -9,10 +9,13 @@
 #include "EdGraph/EdGraphSchema.h"
 #include "EdGraphSchema_K2.h"
 #include "Engine/Blueprint.h"
+#include "K2Node_CallArrayFunction.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_CustomEvent.h"
 #include "K2Node_InputKey.h"
+#include "K2Node_Variable.h"
 #include "K2Node_VariableGet.h"
+#include "K2Node_VariableSet.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "UObject/NoExportTypes.h"
 
@@ -420,11 +423,13 @@ bool FBlueprintWriteService::AddNode(
 
     if (!VariableName.IsEmpty())
     {
-        UK2Node_VariableGet* VariableGet = Cast<UK2Node_VariableGet>(NewNode);
+        UK2Node_Variable* VariableNode = Cast<UK2Node_Variable>(NewNode);
         UK2Node_CustomEvent* CustomEvent = Cast<UK2Node_CustomEvent>(NewNode);
-        if (VariableGet)
+        if (VariableNode)
         {
-            VariableGet->VariableReference.SetSelfMember(FName(*VariableName));
+            VariableNode->VariableReference.SetSelfMember(FName(*VariableName));
+            VariableNode->ReconstructNode();
+            Graph->NotifyGraphChanged();
         }
         else if (CustomEvent)
         {
@@ -434,7 +439,7 @@ bool FBlueprintWriteService::AddNode(
         }
         else
         {
-            OutError = TEXT("variable_name is only supported for K2Node_VariableGet or event_name is supported for K2Node_CustomEvent.");
+            OutError = TEXT("variable_name is only supported for K2Node_VariableGet/K2Node_VariableSet or event_name is supported for K2Node_CustomEvent.");
             return false;
         }
     }
@@ -487,7 +492,13 @@ bool FBlueprintWriteService::AddFunctionCallNode(
     Blueprint->Modify();
     Graph->Modify();
 
-    UK2Node_CallFunction* NewNode = NewObject<UK2Node_CallFunction>(Graph, UK2Node_CallFunction::StaticClass(), NAME_None, RF_Transactional);
+    // Wildcard array library functions only propagate pin types through UK2Node_CallArrayFunction.
+    const bool bIsArrayFunction = TargetFunction->HasMetaData(FBlueprintMetadata::MD_ArrayParam);
+    UClass* NodeClass = bIsArrayFunction
+        ? UK2Node_CallArrayFunction::StaticClass()
+        : UK2Node_CallFunction::StaticClass();
+
+    UK2Node_CallFunction* NewNode = NewObject<UK2Node_CallFunction>(Graph, NodeClass, NAME_None, RF_Transactional);
     if (!NewNode)
     {
         OutError = TEXT("Failed to create UK2Node_CallFunction.");
